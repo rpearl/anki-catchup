@@ -210,8 +210,8 @@ class CatchupSettings(QDialog):
             self.days_behind_label.setText("Days behind")
             self.days_behind.setText("%d" % len(days))
             self.cards_behind_label.setText("Cards behind")
-            self.cards_behind.setText("New/Learn: %d\t In review: %d\t Total %d" %
-                (new_behind, review_behind, total_behind)
+            self.cards_behind.setText("Review: %d\tNew/Learn: %d\tTotal: %d" %
++                (review_behind, new_behind, total_behind)
             )
         else:
             self.days_behind_label.setText("Intentionally left blank")
@@ -254,7 +254,7 @@ class CatchupSettings(QDialog):
 
         self.add_label("Actions")
         self.ctl_suspend = self.add_widget(QPushButton("Suspend overdue cards"), small=True)
-        self.ctl_unsuspend = self.add_widget(QPushButton("Unsuspend earliest cards"), small=True)
+        self.ctl_unsuspend = self.add_widget(QPushButton("Unsuspend review cards"), small=True)
         self.ctl_unsuspend_new = self.add_widget(QPushButton("Unsuspend new/learn cards"), small=True)
 
         self.ctl_suspend.clicked.connect(self.do_suspend)
