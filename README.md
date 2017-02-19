@@ -9,9 +9,7 @@ This is somewhat antithetical to the Idea of Anki, because you're supposed to do
 You could! But I'm lazy. You could do all of this manually, with just suspend and tagging; it wouldn't be very complicated, it would just be fiddly and repetitive. This streamlines it.
 
 ## Installation
-To install CatchUp, download the [latest .zip release](https://github.com/rpearl/anki-catchup/releases/latest). Extract it and copy `CatchupPlugin.py` and the `catchup `directory to your Anki add-ons directory. Your folder structure should look like this:
-  - `Documents/Anki/addons/CatchupPlugin.py`
-  - `Documents/Anki/addons/catchup/*allFilesAndDirectories*`
+To install CatchUp, download the [latest .zip release](https://github.com/rpearl/anki-catchup/releases/latest). Extract it and copy `CatchupPlugin.py` to your Anki add-ons directory.
 
 After restarting Anki you should see an entry called CatchUp under the Tools menu. 
 
