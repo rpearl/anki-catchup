@@ -232,16 +232,16 @@ class CatchupSettings(QDialog):
         self.add_empty()
         self.ctl_unsuspend_query = self.add_labeled_widget("Unsuspend filter", QLineEdit())
         self.ctl_numdays = self.add_labeled_widget("Number of days to unsuspend", QSpinBox(), small=True)
-        self.add_empty()
-        self.ctl_show_stats = self.add_labeled_widget('Show stats', QCheckBox())
 
-        settings_apply = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
-        self.add_widget(settings_apply, left=False)
-        settings_apply.accepted.connect(self.on_accept)
-        settings_apply.rejected.connect(self.on_reject)
+        self.ctl_save = self.add_widget(QPushButton("Save settings"), small=True)
+        self.ctl_cancel = self.add_widget(QPushButton("Undo"), small=True)
+
+        self.ctl_save.clicked.connect(self.on_accept)
+        self.ctl_cancel.clicked.connect(self.on_reject)
 
         self.add_rule()
         self.stats_label = self.add_label("Stats")
+        self.ctl_show_stats = self.add_labeled_widget('Show stats', QCheckBox())
 
         self.days_behind_label = QLabel("Days behind")
         self.cards_behind_label = QLabel("Cards behind")
@@ -255,7 +255,7 @@ class CatchupSettings(QDialog):
         self.add_label("Actions")
         self.ctl_suspend = self.add_widget(QPushButton("Suspend overdue cards"), small=True)
         self.ctl_unsuspend = self.add_widget(QPushButton("Unsuspend earliest cards"), small=True)
-        self.ctl_unsuspend_new = self.add_widget(QPushButton("Unsuspend new/learning cards"), small=True)
+        self.ctl_unsuspend_new = self.add_widget(QPushButton("Unsuspend new/learn cards"), small=True)
 
         self.ctl_suspend.clicked.connect(self.do_suspend)
         self.ctl_unsuspend.clicked.connect(self.do_unsuspend)
@@ -263,6 +263,9 @@ class CatchupSettings(QDialog):
 
         self.add_rule()
         self.add_widget(QLabel('Check the README for instructions and examples'))
+        self.ctl_close = self.add_widget(QPushButton("Close"), small=True)
+        self.ctl_close.clicked.connect(self.close)
+        self.ctl_close.setDefault(True)
 
 
         layout_main = QVBoxLayout()
