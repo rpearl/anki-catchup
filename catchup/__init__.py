@@ -12,11 +12,13 @@ from aqt.utils import showInfo
 # chosen tag for overdue cards controlled by this app
 
 class CatchupSettings(QDialog):
-    def append_config(self, label, control, small=False):
+    def add_labeled_widget(self, label, control, small=False):
+        if not isinstance(label, QLabel):
+            label = QLabel(label)
         self._num_lines += 1
         width = 1 if small else 2
-        self.grid.addWidget(QLabel(label), self._num_lines, 0, 1, 1)
-        self.grid.addWidget(      control, self._num_lines, 1, 1, width)
+        self.grid.addWidget(  label, self._num_lines, 0, 1, 1)
+        self.grid.addWidget(control, self._num_lines, 1, 1, width)
         return control
 
     def add_rule(self, start=0, width=3):
@@ -47,8 +49,10 @@ class CatchupSettings(QDialog):
         if 'catchup' not in mw.col.conf:
             mw.col.conf['catchup'] = {
                 'query': '',
+                'unsuspend_query': '',
                 'tag': 'catchup',
-                'numdays': 1
+                'numdays': 1,
+                'show_stats': False,
             }
             mw.col.setMod()
             mw.reset()
@@ -58,6 +62,8 @@ class CatchupSettings(QDialog):
         self.ctl_query.setText(config['query'])
         self.ctl_tag.setText(config['tag'])
         self.ctl_numdays.setValue(config['numdays'])
+        self.ctl_unsuspend_query.setText(config['unsuspend_query'])
+        self.ctl_show_stats.setChecked(config['show_stats'])
 
     def on_accept(self):
         if not self.ctl_tag.text():
@@ -68,8 +74,10 @@ class CatchupSettings(QDialog):
         old_tag = config['tag']
 
         config['query'] = self.ctl_query.text()
+        config['unsuspend_query'] = self.ctl_unsuspend_query.text()
         config['tag'] = self.ctl_tag.text()
         config['numdays'] = self.ctl_numdays.value()
+        config['show_stats'] = self.ctl_show_stats.isChecked()
 
         cids = mw.col.findCards('tag:%s' % (old_tag,))
         for cid in cids:
@@ -92,7 +100,7 @@ class CatchupSettings(QDialog):
         config = mw.col.conf['catchup']
         query = 'is:due'
         if config['query']:
-            query += ' -(%s)' % (config['query'])
+            query += ' (%s)' % (config['query'])
 
         cids = mw.col.findCards(query)
         for cid in cids:
@@ -104,16 +112,19 @@ class CatchupSettings(QDialog):
         self.update_stats()
         showInfo('%d cards suspended' % len(cids))
 
-    def get_tagged_cids(self):
+    def get_tagged_cids(self, query=None):
         config = mw.col.conf['catchup']
-        cids = mw.col.findCards('tag:%s' % config['tag'], order='c.type, c.due')
+        find_query = 'tag:%s' % (config['tag'],)
+        if query is not None:
+            find_query += ' (%s)' % (query,)
+        cids = mw.col.findCards(find_query, order='c.type, c.due')
 
         return cids
 
     def do_unsuspend(self):
         config = mw.col.conf['catchup']
 
-        cids = self.get_tagged_cids()
+        cids = self.get_tagged_cids(query=config['unsuspend_query'])
 
         unsuspended = []
 
@@ -140,17 +151,33 @@ class CatchupSettings(QDialog):
         self.ctl_suspend.setEnabled(True)
         self.ctl_unsuspend.setEnabled(True)
 
+    def toggle_stats(self):
+        config = mw.col.conf['catchup']
+        config['show_stats'] = self.ctl_show_stats.isChecked()
+        mw.col.setMod()
+        mw.reset()
+        self.update_stats()
+
     def update_stats(self):
-        days = set()
+        config = mw.col.conf['catchup']
+        if config['show_stats']:
+            days = set()
 
-        cids = self.get_tagged_cids()
+            cids = self.get_tagged_cids()
 
-        for cid in cids:
-            card = mw.col.getCard(cid)
-            days.add(card.due)
+            for cid in cids:
+                card = mw.col.getCard(cid)
+                days.add(card.due)
 
-        self.days_behind.setText("%d" % len(days))
-        self.cards_behind.setText("%d" % len(cids))
+            self.days_behind_label.setText("Days behind")
+            self.days_behind.setText("%d" % len(days))
+            self.cards_behind_label.setText("Cards behind")
+            self.cards_behind.setText("%d" % len(cids))
+        else:
+            self.days_behind_label.setText("Intentionally left blank")
+            self.days_behind.setText("")
+            self.cards_behind_label.setText("")
+            self.cards_behind.setText("")
 
     def __init__(self):
         QDialog.__init__(self, parent=mw)
@@ -160,13 +187,13 @@ class CatchupSettings(QDialog):
         self._num_lines = 0
 
         self.add_label("Settings")
-        self.ctl_query   = self.append_config("Cards to ignore (search query)", QLineEdit())
-        self.ctl_tag     = self.append_config("Catchup tag", QLineEdit())
+        self.ctl_query   = self.add_labeled_widget("Suspend filter", QLineEdit())
+        self.ctl_tag     = self.add_labeled_widget("Catchup tag", QLineEdit())
         self.add_empty()
-        self.ctl_numdays = self.append_config("Number of days to unsuspend", QSpinBox(), small=True)
-
-
-        self.display_conf()
+        self.ctl_unsuspend_query = self.add_labeled_widget("Unsuspend filter", QLineEdit())
+        self.ctl_numdays = self.add_labeled_widget("Number of days to unsuspend", QSpinBox(), small=True)
+        self.add_empty()
+        self.ctl_show_stats = self.add_labeled_widget('Show stats', QCheckBox())
 
         settings_apply = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         self.add_widget(settings_apply, left=False)
@@ -174,10 +201,13 @@ class CatchupSettings(QDialog):
         settings_apply.rejected.connect(self.on_reject)
 
         self.add_rule()
-        self.add_label("Stats")
+        self.stats_label = self.add_label("Stats")
 
-        self.days_behind = self.append_config("Days behind", QLabel(""))
-        self.cards_behind = self.append_config("Cards behind", QLabel(""))
+        self.days_behind_label = QLabel("Days behind")
+        self.cards_behind_label = QLabel("Cards behind")
+
+        self.days_behind  = self.add_labeled_widget(self.days_behind_label, QLabel(""))
+        self.cards_behind = self.add_labeled_widget(self.cards_behind_label, QLabel(""))
         self.update_stats()
 
         self.add_rule()
@@ -189,23 +219,31 @@ class CatchupSettings(QDialog):
         self.ctl_suspend.clicked.connect(self.do_suspend)
         self.ctl_unsuspend.clicked.connect(self.do_unsuspend)
 
+        self.add_rule()
+        self.add_widget(QLabel('Check the README for instructions and examples'))
+
 
         layout_main = QVBoxLayout()
         layout_main.addLayout(self.grid)
 
+        self.display_conf()
+
         self.ctl_query.textEdited.connect(self.set_dirty_config)
+        self.ctl_unsuspend_query.textEdited.connect(self.set_dirty_config)
         self.ctl_tag.textEdited.connect(self.set_dirty_config)
         self.ctl_numdays.valueChanged.connect(self.set_dirty_config)
 
+        self.ctl_show_stats.stateChanged.connect(self.toggle_stats)
+
         self.setLayout(layout_main)
         self.setMinimumWidth(512)
-        self.setWindowTitle('Catchup Settings')
+        self.setWindowTitle('Catchup')
 
 def on_catchup_settings():
     dialog = CatchupSettings()
     dialog.exec_()
 
 def main():
-    action = QAction("&Catchup Settings", mw)
+    action = QAction("&Catchup", mw)
     action.triggered.connect(on_catchup_settings)
     mw.form.menuTools.addAction(action)
