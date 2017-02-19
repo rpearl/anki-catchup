@@ -114,17 +114,30 @@ class CatchupSettings(QDialog):
 
     def get_tagged_cids(self, query=None):
         config = mw.col.conf['catchup']
-        find_query = 'tag:%s' % (config['tag'],)
-        if query is not None:
+        find_query = 'tag:%s is:suspended' % (config['tag'],)
+        if query:
             find_query += ' (%s)' % (query,)
         cids = mw.col.findCards(find_query, order='c.type, c.due')
 
         return cids
 
+    def _fixup_tags(self, unsuspended):
+        config = mw.col.conf['catchup']
+        cids = self.get_tagged_cids()
+        for cid in cids:
+            if cid in unsuspended:
+                continue
+            card = mw.col.getCard(cid)
+            note = card.note()
+            note.addTag(config['tag'])
+            note.flush()
+
     def do_unsuspend(self):
         config = mw.col.conf['catchup']
 
-        cids = self.get_tagged_cids(query=config['unsuspend_query'])
+        query = '-is:new '+config['unsuspend_query']
+
+        cids = self.get_tagged_cids(query=query)
 
         unsuspended = []
 
@@ -140,8 +153,28 @@ class CatchupSettings(QDialog):
             note.flush()
             unsuspended.append(cid)
         mw.col.sched.unsuspendCards(unsuspended)
+
+        self._fixup_tags(unsuspended)
+
         self.update_stats()
         showInfo('%d cards unsuspended' % len(unsuspended))
+
+    def do_unsuspend_new(self):
+        config = mw.col.conf['catchup']
+        cids = self.get_tagged_cids(query='is:new')
+        unsuspended = []
+        for cid in cids:
+            card = mw.col.getCard(cid)
+            note = card.note()
+            note.delTag(config['tag'])
+            note.flush()
+            unsuspended.append(cid)
+        mw.col.sched.unsuspendCards(unsuspended)
+        self._fixup_tags(unsuspended)
+
+        self.update_stats()
+        showInfo('%d cards unsuspended' % len(unsuspended))
+
 
     def set_dirty_config(self):
         self.ctl_suspend.setEnabled(False)
@@ -163,16 +196,23 @@ class CatchupSettings(QDialog):
         if config['show_stats']:
             days = set()
 
-            cids = self.get_tagged_cids()
+            all_cids = self.get_tagged_cids()
+            new_behind = 0
 
-            for cid in cids:
+            for cid in all_cids:
                 card = mw.col.getCard(cid)
-                days.add(card.due)
-
+                if card.type == 2: # review
+                    days.add(card.due)
+                else:
+                    new_behind += 1
+            total_behind = len(all_cids)
+            review_behind = total_behind - new_behind
             self.days_behind_label.setText("Days behind")
             self.days_behind.setText("%d" % len(days))
             self.cards_behind_label.setText("Cards behind")
-            self.cards_behind.setText("%d" % len(cids))
+            self.cards_behind.setText("New/Learn: %d\t In review: %d\t Total %d" %
+                (new_behind, review_behind, total_behind)
+            )
         else:
             self.days_behind_label.setText("Intentionally left blank")
             self.days_behind.setText("")
@@ -214,10 +254,12 @@ class CatchupSettings(QDialog):
 
         self.add_label("Actions")
         self.ctl_suspend = self.add_widget(QPushButton("Suspend overdue cards"), small=True)
-        self.ctl_unsuspend = self.add_widget(QPushButton("Unsuspend oldest cards"), small=True)
+        self.ctl_unsuspend = self.add_widget(QPushButton("Unsuspend earliest cards"), small=True)
+        self.ctl_unsuspend_new = self.add_widget(QPushButton("Unsuspend new/learning cards"), small=True)
 
         self.ctl_suspend.clicked.connect(self.do_suspend)
         self.ctl_unsuspend.clicked.connect(self.do_unsuspend)
+        self.ctl_unsuspend_new.clicked.connect(self.do_unsuspend_new)
 
         self.add_rule()
         self.add_widget(QLabel('Check the README for instructions and examples'))
