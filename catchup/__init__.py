@@ -7,35 +7,79 @@ from aqt.qt import *
 #2) unsuspend oldest n days
 
 #configuration
-# 
+#
 # chosen tag for overdue cards controlled by this app
-# list of tags to ignore
 
 class CatchupSettings(QDialog):
+    def append_config(self, label, control, small=False):
+        self._num_lines += 1
+        width = 1 if small else 2
+        self.grid.addWidget(QLabel(label), self._num_lines, 0, 1, 1)
+        self.grid.addWidget(      control, self._num_lines, 1, 1, width)
+        return control
+
+    def add_rule(self, start=0, width=3):
+        frame = QFrame()
+        frame.setFrameShape(QFrame.HLine)
+        frame.setFrameShadow(QFrame.Sunken)
+        self._num_lines += 1
+        self.grid.addWidget(frame, self._num_lines, start, 1, width)
+
+    def add_empty(self):
+        self.add_label("")
+
+    def add_widget(self, control, left=True, small=False):
+        start = 0 if left else 1
+        width = 1 if small else 3-start
+        self._num_lines += 1
+        self.grid.addWidget(control, self._num_lines, start, 1, width)
+        return control
+
+    def add_label(self, label):
+        ql = QLabel(label)
+        font = QFont()
+        font.setBold(True)
+        ql.setFont(font)
+        return self.add_widget(ql)
+
+    def on_accept(self):
+        config = mw.col.conf.setdefault('catchup', dict())
+        config['query'] = self.ctl_query.currentText()
+        config['tag'] = self.ctl_tag.currentText()
+        mw.col.setMod()
+        mw.reset()
+
+    def on_reject(self):
+        config = mw.col.conf.setdefault('catchup', dict())
+        self.ctl_query.setText(config.get('query', ''))
+        self.ctl_tag.setText(config.get('tag', ''))
+        mw.reset()
+
     def __init__(self):
         QDialog.__init__(self, parent=mw)
-        grid = QGridLayout()
-        grid.setSpacing(10)
+        self.grid = QGridLayout()
+        self.grid.setSpacing(10)
+        self._num_lines = 0
 
+        self.add_label("Settings")
+        self.ctl_query   = self.append_config("Cards to ignore (search query)", QLineEdit())
+        self.ctl_tag     = self.append_config("Catchup tag", QLineEdit())
+        self.add_empty()
+        self.ctl_numdays = self.append_config("Number of days to unsuspend", QSpinBox(), small=True)
 
-        lbl_numdays = QLabel("Number of days to unsuspend")
-        ctl_numdays = QSpinBox()
-        grid.addWidget(lbl_numdays, 1, 0, 1, 1)
-        grid.addWidget(ctl_numdays, 1, 1, 1, 2)
+        settings_apply = QDialogButtonBox(QDialogButtonBox.Apply | QDialogButtonBox.Reset)
+        self.add_widget(settings_apply, left=False)
+        settings_apply.accepted.connect(self.on_accept)
+        settings_apply.rejected.connect(self.on_reject)
 
-        lbl_tag = QLabel("Catchup tag")
-        ctl_tag = QLineEdit()
-        grid.addWidget(lbl_tag, 2, 0, 1, 1)
-        grid.addWidget(ctl_tag, 2, 1, 1, 2)
+        self.add_rule()
 
-        lbl_query = QLabel("Cards to ignore (search query)")
-        ctl_query = QLineEdit()
-        grid.addWidget(lbl_query, 3, 0, 1, 1)
-        grid.addWidget(ctl_query, 3, 1, 1, 2)
-        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.add_label("Actions")
+        ctl_suspend = self.add_widget(QPushButton("Suspend overdue cards"), small=True)
+        ctl_unsuspend = self.add_widget(QPushButton("Unsuspend oldest cards"), small=True)
+
         layout_main = QVBoxLayout()
-        layout_main.addLayout(grid)
-        layout_main.addWidget(button_box)
+        layout_main.addLayout(self.grid)
 
         self.setLayout(layout_main)
         self.setMinimumWidth(512)
