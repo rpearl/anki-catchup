@@ -237,13 +237,13 @@ class CatchupSettings(QDialog):
 
         self.setLayout(layout_main)
         self.setMinimumWidth(512)
-        self.setWindowTitle('Catchup')
+        self.setWindowTitle('CatchUp')
 
 def on_catchup_settings():
     dialog = CatchupSettings()
     dialog.exec_()
 
 def main():
-    action = QAction("&Catchup", mw)
+    action = QAction("&CatchUp", mw)
     action.triggered.connect(on_catchup_settings)
     mw.form.menuTools.addAction(action)
